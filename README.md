@@ -23,8 +23,6 @@ terraform {
 # Configuration options
 provider "aws" {
   region     = "ap-south-1"
-  access_key = "paste-your-access-key"     # 👈 paste your access key
-  secret_key = "paste-your-secret-key"     # 👈 paste your secret key 
 }
 
 # --- IAM Role for Lambda Function ---
