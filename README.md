@@ -1,264 +1,313 @@
-# Delete Unused AWS EBS Snapshots Automatically Using Terraform, and AWS Lambda
+Absolutely, Bilal. I will write it for you. Since Medium articles are long, I'll write it in a professional style that is optimized for readers, recruiters, and SEO. You can copy and paste it directly into Medium.
 
-Business Problem
+---
 
-in real-world companies, they crete snapshot of volume or they create golden image. afterthat they forget to delte snapshot and it silently occurs bills. 
+# Automate AWS EBS Snapshot Cleanup Using Terraform and AWS Lambda
 
-in this article, we tackle then prblem of creating snapshot of volume and then forget to delete. 
+*Reduce AWS storage costs by automatically identifying and deleting unused EBS snapshots.*
 
-Solution:
+---
 
-we can use eventbridge scheduler, lambda to tackel then problem. but in this article, we use only lambda to run manally to delte unused snapshot. 
+## Introduction
 
+As cloud environments grow, AWS costs can increase in unexpected ways. One common reason is forgotten Amazon EBS snapshots.
 
-what we will do?
+Development and operations teams frequently create snapshots before deploying a new application version, performing maintenance, or making infrastructure changes. These snapshots provide a quick rollback option if something goes wrong.
 
-we will create a lambda function. it will delte snapshot when we click button of lambda. we can use evetnbridge scheudle that is better approach. but for simplicty we only are using lambda.
-what is ebs volume? 
+However, once the work is completed, the EC2 instance may be terminated and its EBS volume automatically deleted. The snapshot, on the other hand, remains in the AWS account. Since Amazon EBS snapshots are stored independently of the original volume, AWS continues charging for the storage they consume.
 
+For a small environment, this may not seem like a significant issue. But in organizations that create hundreds of snapshots every month, unused snapshots slowly accumulate, increasing storage costs and making resource management more difficult.
 
-what is snapshot?
+Instead of relying on engineers to manually identify and delete stale snapshots, we can automate the process using AWS Lambda.
 
-Tech Stack:
+In this hands-on project, we'll build a simple serverless solution using **Terraform** and **AWS Lambda**. Terraform will provision the required AWS resources, while Lambda will scan the AWS account and automatically delete snapshots that are no longer associated with an existing volume.
 
-terraform
-lambda 
-Prerequsites:
-aws 
-terraform 
+Although this lab executes the Lambda function manually, the same solution can easily be integrated with Amazon EventBridge Scheduler to perform automatic cleanup on a daily or weekly schedule.
 
+---
 
-# Launch an EC2 Instance:
+# Business Problem
 
+Imagine a development team working on a staging environment.
 
+Before deploying a new release, the team creates an EBS snapshot as a backup. Once testing is completed successfully, the EC2 instance is terminated.
 
+AWS automatically deletes the attached EBS volume because **Delete on Termination** is enabled.
 
-<img width="1600" height="900" alt="aws lambda 7 " src="https://github.com/user-attachments/assets/70195d33-ea0c-4b77-a5ad-a52362403585" />
+However, the backup snapshot is forgotten.
 
+A month later, another deployment creates another snapshot.
 
-<img width="1600" height="900" alt="aws lambda 8 " src="https://github.com/user-attachments/assets/cfbaa6a1-f23a-4f68-9801-421f5bcd8fff" />
+Then another.
 
-<img width="1600" height="900" alt="aws lambda 9" src="https://github.com/user-attachments/assets/205604e8-b990-4305-8b76-89447d5d5187" />
+Then another.
 
-# 2. Create a Snapshot of its Root Volume:
-we can see when create ec2, aws crataes ebs volume for us. 
+Although these snapshots are no longer needed, AWS continues storing them, resulting in unnecessary storage costs.
 
-click create snapshot, 
-select volume 
+In large organizations where multiple teams deploy infrastructure every day, manually tracking these snapshots becomes nearly impossible.
 
-<img width="1600" height="900" alt="aws lambda 10 " src="https://github.com/user-attachments/assets/0350eca3-53b0-4526-b513-956926bb1b0a" />
+Automation solves this problem.
 
-<img width="1600" height="900" alt="aws lambda 12" src="https://github.com/user-attachments/assets/9eb1dac2-6bb4-41f1-b201-de06b4c73aeb" />
+---
 
-<img width="1600" height="900" alt="aws lambda 13" src="https://github.com/user-attachments/assets/d1c1024f-f373-410b-8217-4f08252bf74b" />
+# Solution
 
+In this project we will use:
 
-<img width="1600" height="900" alt="aws lambda 15" src="https://github.com/user-attachments/assets/9c43ec01-fbe6-413d-90ea-be9949faddcf" />
+* Terraform to provision the infrastructure.
+* AWS Lambda to identify stale EBS snapshots.
+* IAM Role and Policy to grant the required permissions.
+* CloudWatch Logs to record the execution.
 
+The workflow is simple.
 
+1. Terraform creates the Lambda function and IAM resources.
+2. We create a snapshot from an EC2 volume.
+3. The EC2 instance is terminated.
+4. AWS deletes the EBS volume automatically.
+5. The snapshot remains in the AWS account.
+6. Lambda scans all snapshots.
+7. If the associated volume no longer exists, Lambda deletes the snapshot automatically.
 
-# 3. Terminate the EC2 Instance (Makes Snapshot Stale):
+---
 
-click termante the instance. 
+# Architecture
 
-Note: when we create or delete ec2 instance, aws creates volume when we create ec2 and deltes volume when we dele ec2. 
+*(Insert your architecture diagram here.)*
 
-so we have dleted ec2, you can see volume got deeleed along with it. Now our snapshot is stale or unused. 
-
-<img width="1600" height="900" alt="aws lambda 16" src="https://github.com/user-attachments/assets/4b679345-938a-44f6-b65f-fc31dab9e45c" />
-
-<img width="1600" height="900" alt="aws lambda 18" src="https://github.com/user-attachments/assets/b969d968-fb4d-44bd-a403-2afc264f5754" />
-
-
-
-<img width="1600" height="900" alt="aws lambda 19" src="https://github.com/user-attachments/assets/3a8e704f-5f53-4600-bc39-a8e3379ff813" />
-
-
-# 4. Terraform Init, plan
-
-
-<img width="1600" height="900" alt="aws lambda 21" src="https://github.com/user-attachments/assets/c4ae3564-bc59-4f08-b139-a1f13e987309" />
-
-
-<img width="1600" height="900" alt="aws lambda 22" src="https://github.com/user-attachments/assets/3e899be1-13b9-4aa4-b016-75e9a1fe9800" />
-
-this code creates:
-
-lambda function.
-
-
-main.tf
-```terraform
-# main.tf
-terraform {
-  required_providers {
-    aws = {
-      source = "hashicorp/aws"
-      version = "5.74.0"
-    }
-  }
-}
-
-# Configuration options
-provider "aws" {
-  region     = "ap-south-1"
-}
-
-# --- IAM Role for Lambda Function ---
-# This role grants the Lambda function permission to interact with other AWS services.
-resource "aws_iam_role" "ebs_snapshot_cleaner_role" {
-  name = "DeleteStaleEBS_LambdaRole" # Unique name for the role
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    ManagedBy = "Terraform"
-    Purpose   = "EBS Snapshot Cleaner"
-  }
-}
-
-# --- IAM Policy for Lambda Role ---
-# This policy defines the specific actions the Lambda function is allowed to perform on AWS resources,
-# including logging its activity to CloudWatch Logs.
-resource "aws_iam_role_policy" "ebs_snapshot_cleaner_policy" {
-  name = "DeleteStaleEBS_Policy" # Unique name for the policy
-  role = aws_iam_role.ebs_snapshot_cleaner_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "ec2:DescribeSnapshots",
-          "ec2:DeleteSnapshot",
-          "ec2:DescribeInstances",
-          "ec2:DescribeVolumes",
-          "logs:CreateLogGroup",   # Required for CloudWatch Logs
-          "logs:CreateLogStream",  # Required for CloudWatch Logs
-          "logs:PutLogEvents"      # Required for CloudWatch Logs
-        ]
-        Effect   = "Allow"
-        Resource = "*" # Allows actions on all resources; consider narrowing for production.
-      }
-    ]
-  })
-}
-
-# --- Lambda Code Packaging ---
-# This data source creates a zip file containing the Python code for the Lambda function.
-# It automatically reads from the 'lambda_code' directory.
-data "archive_file" "ebs_snapshot_cleaner_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/python/" # Path to your Lambda function's Python code
-  output_path = "${path.module}/python/lambda_function.zip" # Output zip file name
-}
-
-# --- Lambda Function ---
-# Defines the AWS Lambda function that runs the snapshot cleanup logic.
-resource "aws_lambda_function" "ebs_snapshot_cleaner_function" {
-  function_name    = "DeleteStaleEBSSnapshot" # Name of the Lambda function in AWS
-  role             = aws_iam_role.ebs_snapshot_cleaner_role.arn
-  handler          = "lambda_function.lambda_handler" # Entry point (file.function_name)
-  runtime          = "python3.9" # Python runtime version
-  timeout          = 60          # Function timeout in seconds (1 minute) for lab testing
-  memory_size      = 128 # Memory allocated to the function (MB)
-
-  filename         = data.archive_file.ebs_snapshot_cleaner_zip.output_path
-  source_code_hash = data.archive_file.ebs_snapshot_cleaner_zip.output_base64sha256
-
-  tags = {
-    ManagedBy = "Terraform"
-    Purpose   = "EBS Snapshot Cleaner"
-  }
-}
+```
+EC2 Instance
+      │
+      ▼
+Create Snapshot
+      │
+      ▼
+Terminate EC2
+      │
+      ▼
+Volume Deleted
+      │
+      ▼
+Snapshot Becomes Unused
+      │
+      ▼
+AWS Lambda
+      │
+      ▼
+Delete Stale Snapshot
+      │
+      ▼
+CloudWatch Logs
 ```
 
+---
 
-python/delete_unused_snapshots.py
+# Technologies Used
 
-```python
-import boto3
+* Terraform
+* AWS Lambda
+* Amazon EC2
+* Amazon EBS
+* IAM
+* Amazon CloudWatch
 
-def lambda_handler(event, context):
-    ec2 = boto3.client('ec2')
+---
 
-    # Get all EBS snapshots
-    response = ec2.describe_snapshots(OwnerIds=['self'])
+# Prerequisites
 
-    # Get all active EC2 instance IDs
-    instances_response = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
-    active_instance_ids = set()
+Before starting this lab, make sure you have:
 
-    for reservation in instances_response['Reservations']:
-        for instance in reservation['Instances']:
-            active_instance_ids.add(instance['InstanceId'])
+* An AWS account
+* Terraform installed
+* AWS CLI configured
+* Basic understanding of AWS EC2
 
-    # Iterate through each snapshot and delete if it's not attached to any volume or the volume is not attached to a running instance
-    for snapshot in response['Snapshots']:
-        snapshot_id = snapshot['SnapshotId']
-        volume_id = snapshot.get('VolumeId')
+---
 
-        if not volume_id:
-            # Delete the snapshot if it's not attached to any volume
-            ec2.delete_snapshot(SnapshotId=snapshot_id)
-            print(f"Deleted EBS snapshot {snapshot_id} as it was not attached to any volume.")
-        else:
-            # Check if the volume still exists
-            try:
-                volume_response = ec2.describe_volumes(VolumeIds=[volume_id])
-                if not volume_response['Volumes'][0]['Attachments']:
-                    ec2.delete_snapshot(SnapshotId=snapshot_id)
-                    print(f"Deleted EBS snapshot {snapshot_id} as it was taken from a volume not attached to any running instance.")
-            except ec2.exceptions.ClientError as e:
-                if e.response['Error']['Code'] == 'InvalidVolume.NotFound':
-                    # The volume associated with the snapshot is not found (it might have been deleted)
-                    ec2.delete_snapshot(SnapshotId=snapshot_id)
-                    print(f"Deleted EBS snapshot {snapshot_id} as its associated volume was not found.")
+# Step 1 — Launch an EC2 Instance
+
+To simulate a real-world environment, launch a temporary EC2 instance.
+
+Use the following name:
+
+```
+staging-app-server-v1
 ```
 
+This represents a staging application server used during development or testing.
 
+*(Insert your EC2 screenshots here.)*
 
-# 5. result
-you can see our lambda function has been created. it has persmission to delte snapshot and generte cloduwatch logs. because we mentioned in iam policy . 
+---
 
-<img width="1600" height="900" alt="aws lambda 24" src="https://github.com/user-attachments/assets/0cc1ed4d-cae3-4b6a-8cda-0b91b0502dec" />
+# Step 2 — Create an EBS Snapshot
 
+When an EC2 instance is launched, AWS automatically creates an Amazon EBS volume for the operating system.
 
+Navigate to **Elastic Block Store → Volumes**.
 
+Select the root volume.
 
-# 6. test
+Choose **Create Snapshot**.
 
-open test tab. 
-event name: EBSStateSnapshotEvent
-click test
+Give the snapshot a meaningful name such as:
 
-you can see our lambda function has run and it automatically delted stale snapshot. 
+```
+staging-backup-before-release
+```
 
+This simulates creating a backup before deploying a new application version.
 
-<img width="1600" height="900" alt="aws lambda 25" src="https://github.com/user-attachments/assets/0aa69c1b-d78c-408a-8805-927200024863" />
+*(Insert snapshot screenshots here.)*
 
-<img width="1600" height="900" alt="aws lambda 26" src="https://github.com/user-attachments/assets/ffcc2450-148a-4304-ae85-40f42be7e79a" />
+---
 
-<img width="1600" height="900" alt="aws lambda 27" src="https://github.com/user-attachments/assets/1e8a6d20-8c83-4c2d-9ff1-b7b415f9a195" />
+# Step 3 — Terminate the EC2 Instance
 
-# 7. tf destroy
+After the deployment is completed, the temporary server is no longer required.
 
-<img width="1600" height="900" alt="aws lambda 28" src="https://github.com/user-attachments/assets/459099f5-502d-4b6a-a438-3ba1db0e5cad" />
+Terminate the EC2 instance.
 
+Because **Delete on Termination** is enabled, AWS automatically deletes the attached EBS volume.
 
-<img width="1600" height="900" alt="aws lambda 29" src="https://github.com/user-attachments/assets/87cc485b-9d69-45f5-958d-da39b71b4c8b" />
+However, notice that the snapshot still exists.
 
+At this point, the snapshot has become an unused backup that continues consuming storage.
 
-# concnlusoin
+This is exactly the type of resource we want to clean up automatically.
 
+*(Insert screenshots.)*
+
+---
+
+# Step 4 — Deploy the Infrastructure
+
+Initialize Terraform.
+
+```bash
+terraform init
+```
+
+Review the execution plan.
+
+```bash
+terraform plan
+```
+
+Deploy the infrastructure.
+
+```bash
+terraform apply
+```
+
+Terraform creates:
+
+* IAM Role
+* IAM Policy
+* AWS Lambda Function
+
+The Lambda function contains the cleanup logic responsible for identifying unused snapshots.
+
+*(Insert Terraform screenshots.)*
+
+---
+
+# Understanding the Lambda Function
+
+The Lambda function performs the following tasks.
+
+First, it retrieves all EBS snapshots owned by your AWS account.
+
+Next, it verifies whether the original EBS volume still exists.
+
+If the associated volume has already been deleted, the snapshot is considered stale.
+
+Finally, Lambda deletes the snapshot and records the action in CloudWatch Logs.
+
+This removes the need for engineers to manually clean up old snapshots.
+
+*(Insert your Python code here.)*
+
+---
+
+# Step 5 — Verify the Deployment
+
+Open the Lambda console.
+
+You will notice that Terraform has created the function successfully.
+
+The IAM role grants permission to:
+
+* Describe snapshots
+* Describe volumes
+* Delete snapshots
+* Write execution logs to CloudWatch
+
+*(Insert screenshots.)*
+
+---
+
+# Step 6 — Test the Solution
+
+Open the **Test** tab inside the Lambda console.
+
+Create a test event.
+
+For example:
+
+```
+EBSStaleSnapshotEvent
+```
+
+Click **Test**.
+
+The Lambda function scans the account, identifies the stale snapshot, deletes it, and writes the execution details to CloudWatch Logs.
+
+After refreshing the Snapshots page, you'll notice that the unused snapshot has been removed automatically.
+
+*(Insert screenshots.)*
+
+---
+
+# Production Considerations
+
+This project demonstrates the core automation logic using manual Lambda execution.
+
+In a production environment, you can improve the solution by:
+
+* Triggering Lambda automatically using Amazon EventBridge Scheduler.
+* Running the cleanup every weekend or once per day.
+* Applying tags to snapshots before deleting them.
+* Sending Amazon SNS notifications after cleanup.
+* Retaining snapshots for a defined number of days before deletion.
+* Restricting IAM permissions following the principle of least privilege.
+
+These improvements make the solution safer and more suitable for enterprise environments.
+
+---
+
+# Key Takeaways
+
+In this project we learned how to:
+
+* Provision AWS infrastructure using Terraform.
+* Create a serverless cleanup solution using AWS Lambda.
+* Automatically identify unused Amazon EBS snapshots.
+* Reduce unnecessary AWS storage costs.
+* Eliminate repetitive manual cleanup tasks.
+
+Although this example focuses on EBS snapshots, the same automation approach can be extended to other unused AWS resources such as unattached EBS volumes, idle Elastic IP addresses, unused AMIs, or obsolete security groups.
+
+Automation not only helps reduce cloud costs but also improves operational efficiency by allowing engineers to spend less time on repetitive maintenance tasks.
+
+Thank you for reading!
+
+If you found this project helpful, consider connecting with me on LinkedIn and checking out the GitHub repository for the complete source code.
+
+### My recommendation for the GitHub repository name
+
+I would use:
+
+**⭐ `terraform-aws-ebs-snapshot-cleanup`**
+
+This is clear, professional, and follows a naming convention commonly used in Terraform and open-source repositories. It also matches the project's purpose much better than `terraform-aws-lambda-snapshot`.
