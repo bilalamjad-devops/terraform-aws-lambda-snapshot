@@ -53,6 +53,21 @@ The workflow:
 6. If a snapshot's source volume no longer exists or isn't attached to anything, Lambda deletes it.
 7. Every deletion is logged to CloudWatch.
 
+## Steps We'll Follow
+
+Here's the full path we'll walk through, so you know what's coming before diving in:
+
+1. **Launch an EC2 instance** — to give ourselves something to snapshot
+2. **Create an EBS snapshot** of its root volume — simulating a pre-deployment backup
+3. **Terminate the EC2 instance** — its volume gets deleted automatically, leaving the snapshot orphaned
+4. **Deploy the infrastructure with Terraform** — creates the IAM role, policy, and Lambda function
+5. **Understand the Lambda function** — how it detects which snapshots are stale
+6. **Verify the deployment** — confirm the function and its permissions in the console
+7. **Test the solution** — manually trigger the function and watch it delete the stale snapshot
+8. **Clean up** — `terraform destroy` to avoid leftover costs
+
+By the end, you'll have a working Lambda function that can correctly identify and delete an orphaned EBS snapshot — and a clear idea of what to harden before running it against a real account.
+
 ## Architecture
 
 ```
