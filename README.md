@@ -2,6 +2,9 @@
 
 *Automatically identify and delete stale EBS snapshots before they quietly inflate your AWS bill.*
 
+<img width="1536" height="1024" alt="ChatGPT Image Jun 21, 2026, 09_20_08 PM" src="https://github.com/user-attachments/assets/daa43000-a037-481c-b928-d9a98a2114b9" />
+
+
 ---
 
 ## Introduction
